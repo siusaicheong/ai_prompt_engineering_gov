@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Engineering Resource Hub · 提示工程資源網</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --ink:#1f2937; --muted:#64748b; --line:#e2e8f0; --card:#fff;
+    --accent:#0f766e; --accent-dark:#0b5d56; --accent-soft:#ccfbf1; --accent-ink:#0f766e;
+    --hero-1:#16202b; --hero-2:#1f4d49;
+    --chip:#eef2f6; --chip-ink:#475569;
+    --warn-bg:#fff7ed; --warn-line:#fdba74; --warn-ink:#9a3412;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;
+    line-height:1.6;
+  }
+  a{color:inherit; text-decoration:none;}
+
+  /* ---------- nav ---------- */
+  .nav{
+    position:sticky;
+    top:0;
+    z-index:50;
+    backdrop-filter:saturate(150%) blur(8px);
+    background:rgba(255,255,255,.84);
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:12px 22px;
+    flex-wrap:wrap;
+  }
+  .nav .logo{
+    width:34px;
+    height:34px;
+    border-radius:9px;
+    flex-shrink:0;
+    background:linear-gradient(135deg,var(--accent),#0d9488);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+    font-weight:800;
+    font-size:1.05rem;
+  }
+  .nav .name{
+    font-weight:700;
+    font-size:1rem;
+    white-space:nowrap;
+  }
+  .nav .name small{
+    display:block;
+    font-weight:400;
+    color:var(--muted);
+    font-size:.72rem;
+  }
+  .nav .links{
+    margin-left:auto;
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .nav .links a{
+    padding:7px 13px;
+    border-radius:8px;
+    font-size:.85rem;
+    color:var(--muted);
+    font-weight:600;
+  }
+  .nav .links a:hover{
+    background:var(--accent-soft);
+    color:var(--accent-ink);
+  }
+  .nav .links a.cta{
+    background:var(--accent);
+    color:#fff;
+  }
+  .nav .links a.cta:hover{
+    background:var(--accent-dark);
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative;
+    overflow:hidden;
+    color:#fff;
+    background:
+      radial-gradient(1100px 500px at 80% -10%, #2d6e68 0%, transparent 60%),
+      linear-gradient(135deg,var(--hero-1),var(--hero-2));
+    padding:74px 22px 88px;
+  }
+  .hero::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:
+      radial-gradient(2px 2px at 20% 30%, rgba(94,234,212,.5), transparent),
+      radial-gradient(2px 2px at 70% 60%, rgba(94,234,212,.35), transparent),
+      radial-gradient(2px 2px at 40% 80%, rgba(255,255,255,.25), transparent),
+      radial-gradient(2px 2px at 90% 20%, rgba(255,255,255,.2), transparent);
+  }
+  .hero-inner{
+    max-width:940px;
+    margin:0 auto;
+    position:relative;
+    z-index:1;
+    text-align:center;
+  }
+  .badge{
+    display:inline-block;
+    background:rgba(204,251,241,.16);
+    border:1px solid rgba(94,234,212,.4);
+    color:#5eead4;
+    font-size:.74rem;
+    font-weight:700;
+    letter-spacing:.6px;
+    padding:5px 14px;
+    border-radius:20px;
+    margin-bottom:18px;
+  }
+  .hero h1{
+    font-size:2.45rem;
+    line-height:1.2;
+    margin:0 0 16px;
+    letter-spacing:-.5px;
+  }
+  .hero h1 small{
+    display:block;
+    font-size:1rem;
+    font-weight:400;
+    opacity:.74;
+    margin-top:10px;
+    letter-spacing:0;
+  }
+  .hero p{
+    font-size:1.05rem;
+    color:#cbd5e1;
+    max-width:720px;
+    margin:0 auto 28px;
+  }
+  .hero-btns{
+    display:flex;
+    gap:12px;
+    justify-content:center;
+    flex-wrap:wrap;
+  }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:12px 22px;
+    border-radius:10px;
+    font-weight:700;
+    font-size:.95rem;
+    cursor:pointer;
+    border:1px solid transparent;
+    transition:.18s;
+  }
+  .btn-primary{
+    background:var(--accent);
+    color:#fff;
+  }
+  .btn-primary:hover{
+    background:var(--accent-dark);
+    transform:translateY(-1px);
+  }
+  .btn-ghost{
+    background:rgba(255,255,255,.08);
+    color:#fff;
+    border-color:rgba(255,255,255,.25);
+  }
+  .btn-ghost:hover{
+    background:rgba(255,255,255,.16);
+  }
+
+  /* ---------- layout ---------- */
+  .wrap{
+    max-width:1080px;
+    margin:0 auto;
+    padding:0 22px;
+  }
+  .section{
+    padding:62px 0;
+  }
+  .section-head{
+    text-align:center;
+    max-width:760px;
+    margin:0 auto 40px;
+  }
+  .section-head .eyebrow{
+    color:var(--accent-ink);
+    font-weight:700;
+    font-size:.78rem;
+    letter-spacing:1px;
+    text-transform:uppercase;
+  }
+  .section-head h2{
+    font-size:1.75rem;
+    margin:8px 0 10px;
+    color:#0f172a;
+  }
+  .section-head p{
+    color:var(--muted);
+    margin:0;
+  }
+
+  /* ---------- resource groups ---------- */
+  .group{
+    margin-bottom:34px;
+  }
+  .group:last-child{
+    margin-bottom:0;
+  }
+  .group-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0 0 14px;
+    color:#0f172a;
+    font-size:1.05rem;
+  }
+  .group-title span{
+    width:10px;
+    height:10px;
+    background:var(--accent);
+    border-radius:50%;
+    display:inline-block;
+  }
+
+  /* ---------- cards ---------- */
+  .cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+    gap:20px;
+  }
+  .tool{
+    position:relative;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:26px 24px 24px;
+    transition:.2s;
+    display:flex;
+    flex-direction:column;
+    min-height:255px;
+    box-shadow:0 1px 2px rgba(0,0,0,.04);
+  }
+  .tool:hover{
+    transform:translateY(-4px);
+    box-shadow:0 14px 30px rgba(15,118,110,.13);
+    border-color:#99f6e4;
+  }
+  .tool .ico{
+    width:50px;
+    height:50px;
+    border-radius:13px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--accent-soft);
+    color:var(--accent-ink);
+    margin-bottom:16px;
+  }
+  .tool .ico svg{
+    width:26px;
+    height:26px;
+  }
+  .tool h3{
+    margin:0 0 6px;
+    font-size:1.12rem;
+    line-height:1.35;
+    color:#0f172a;
+  }
+  .tool .zh{
+    font-size:.84rem;
+    color:var(--muted);
+    font-weight:600;
+    margin-bottom:10px;
+  }
+  .tool p{
+    font-size:.92rem;
+    color:var(--muted);
+    margin:0 0 18px;
+    flex:1;
+  }
+  .tool .go{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    color:var(--accent-ink);
+    font-weight:700;
+    font-size:.9rem;
+  }
+  .tool:hover .go{
+    gap:10px;
+  }
+  .tool .corner{
+    position:absolute;
+    top:20px;
+    right:22px;
+    font-size:.7rem;
+    font-weight:800;
+    color:#cbd5e1;
+  }
+  .tool.coming{
+    opacity:.82;
+  }
+  .tool.coming .go{
+    color:#94a3b8;
+  }
+  .pill{
+    display:inline-block;
+    font-size:.68rem;
+    font-weight:800;
+    color:var(--warn-ink);
+    background:var(--warn-bg);
+    border:1px solid var(--warn-line);
+    border-radius:999px;
+    padding:2px 8px;
+    margin-left:6px;
+    vertical-align:middle;
+  }
+
+  /* ---------- start here ---------- */
+  .steps{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:34px 30px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+    gap:24px;
+  }
+  .step{
+    position:relative;
+    padding-left:50px;
+  }
+  .step .n{
+    position:absolute;
+    left:0;
+    top:0;
+    width:36px;
+    height:36px;
+    border-radius:50%;
+    background:var(--accent);
+    color:#fff;
+    font-weight:800;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .step h4{
+    margin:2px 0 4px;
+    font-size:1rem;
+  }
+  .step p{
+    margin:0;
+    font-size:.88rem;
+    color:var(--muted);
+  }
+
+  /* ---------- application areas ---------- */
+  .category-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+    gap:14px;
+  }
+  .cat{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px;
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+  }
+  .cat .mark{
+    width:28px;
+    height:28px;
+    border-radius:8px;
+    background:var(--accent-soft);
+    color:var(--accent-ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:800;
+    flex-shrink:0;
+  }
+  .cat h4{
+    margin:0 0 4px;
+    color:#0f172a;
+    font-size:.98rem;
+  }
+  .cat p{
+    margin:0;
+    color:var(--muted);
+    font-size:.86rem;
+  }
+
+  /* ---------- stay updated ---------- */
+  .stay{
+    background:linear-gradient(135deg,#0f766e,#115e59);
+    color:#fff;
+    border-radius:20px;
+    padding:46px 36px;
+    text-align:center;
+  }
+  .stay h2{
+    margin:0 0 10px;
+    font-size:1.7rem;
+  }
+  .stay p{
+    color:#ccfbf1;
+    max-width:660px;
+    margin:0 auto 26px;
+  }
+  .stay-links{
+    display:flex;
+    gap:12px;
+    justify-content:center;
+    flex-wrap:wrap;
+  }
+  .stay-links a{
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.28);
+    color:#fff;
+    padding:11px 20px;
+    border-radius:10px;
+    font-weight:700;
+    font-size:.9rem;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    transition:.18s;
+  }
+  .stay-links a:hover{
+    background:rgba(255,255,255,.22);
+    transform:translateY(-1px);
+  }
+  .stay-links a.solid{
+    background:#fff;
+    color:var(--accent-ink);
+    border-color:#fff;
+  }
+  .stay-links a.solid:hover{
+    background:#ecfdf5;
+  }
+
+  /* ---------- footer ---------- */
+  footer{
+    border-top:1px solid var(--line);
+    padding:34px 22px;
+    color:var(--muted);
+    font-size:.85rem;
+  }
+  .foot-inner{
+    max-width:1080px;
+    margin:0 auto;
+    display:flex;
+    justify-content:space-between;
+    gap:14px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .foot-inner a{
+    color:var(--accent-ink);
+    font-weight:600;
+  }
+
+  @media (max-width:760px){
+    .nav{
+      align-items:flex-start;
+    }
+    .nav .links{
+      width:100%;
+      margin-left:0;
+    }
+    .hero h1{
+      font-size:1.85rem;
+    }
+    .hero{
+      padding:54px 20px 66px;
+    }
+    .section{
+      padding:46px 0;
+    }
+    .nav .name small{
+      display:none;
+    }
+    .tool{
+      min-height:auto;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav class="nav">
+  <div class="logo">P</div>
+  <div class="name">Prompt Engineering Resource Hub<small>提示工程資源網 · 語文工作、翻譯、寫作與多模態應用</small></div>
+  <div class="links">
+    <a href="#tools">資源</a>
+    <a href="#areas">應用範疇</a>
+    <a href="#updates">更新</a>
+    <a class="cta" href="#tools">開始使用</a>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <div class="hero-inner">
+    <span class="badge">PROMPT ENGINEERING RESOURCE HUB</span>
+    <h1>問得精準，答得出色
+      <small>用清晰結構引導 AI，將想法轉化為更可靠的輸出</small>
+    </h1>
+    <p>本資源網整理提示工程相關工具與材料，涵蓋提示詞範本、提示詞生成器和提示詞試驗場，協助使用者以更清晰的方法應用 AI 於翻譯、寫作、審校和多模態生成等工作。</p>
+    <div class="hero-btns">
+      <a class="btn btn-primary" href="#tools">瀏覽資源 →</a>
+    </div>
+  </div>
+</header>
+
+<!-- ============ RESOURCES ============ -->
+<section class="section" id="tools">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Resource Hub</div>
+      <h2>核心工具與學習資源</h2>
+      <p>以下資源可單獨使用，也可按需要組合成完整工作流程。日後新增的主題工具和案例，也會集中放在這裡。</p>
+    </div>
+
+    <div class="group">
+      <h3 class="group-title"><span></span>核心工具</h3>
+      <div class="cards">
+        <!-- Government Document Translation Prompt Templates -->
+        <a class="tool" href="govt-translation-prompts/index.html">
+          <span class="corner">01</span>
+          <div class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4z"/><path d="M4 12h10v8H4z"/><path d="M18 12h2v8h-2z"/></svg>
+          </div>
+          <h3>Government Document Translation Prompt Templates</h3>
+          <div class="zh">政府公文翻譯提示詞範本庫</div>
+          <p>按政府公文翻譯流程編排提示詞範本，涵蓋原文分析、術語管理、翻譯生成、修訂潤色和譯後核驗等階段。</p>
+          <span class="go">瀏覽範本 →</span>
+        </a>
+
+        <!-- Prompt Generator for Language Professionals -->
+        <a class="tool" href="https://cute-clafoutis-e8f624.netlify.app/">
+          <span class="corner">02</span>
+          <div class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3"/><path d="M12 18v3"/><path d="M5.6 5.6l2.1 2.1"/><path d="M16.3 16.3l2.1 2.1"/><path d="M3 12h3"/><path d="M18 12h3"/><circle cx="12" cy="12" r="4"/></svg>
+          </div>
+          <h3>Prompt Generator for Language Professionals</h3>
+          <div class="zh">語文工作者提示詞生成器</div>
+          <p>透過角色、任務、受眾、語氣、術語、限制和輸出格式等選項，逐步組合出適合翻譯、寫作、修訂和審校工作的提示詞。</p>
+          <span class="go">開始生成 →</span>
+        </a>
+
+        <!-- Prompt Playground -->
+        <a class="tool" href="prompt-playground/index.html">
+          <span class="corner">03</span>
+          <div class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/><path d="M8 9l2 2-2 2"/><path d="M13 13h3"/></svg>
+          </div>
+          <h3>Prompt Playground</h3>
+          <div class="zh">提示詞試驗場</div>
+          <p>比較不同措辭、語氣、結構和限制條件對輸出的影響，觀察提示詞調整帶來的差異，建立可重複使用的寫法。</p>
+          <span class="go">開始試驗 →</span>
+        </a>
+      </div>
+    </div>
+
+    
+  </div>
+</section>
+
+<!-- ============ APPLICATION AREAS ============ -->
+<section class="section" id="areas">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Application Areas</div>
+      <h2>可延伸的應用範疇</h2>
+      <p>提示工程不只適用於文字生成，也可延伸至翻譯、研究、簡報、影像、影片和工作流程設計。</p>
+    </div>
+
+    <div class="category-grid">
+      <div class="cat">
+        <div class="mark">譯</div>
+        <div>
+          <h4>翻譯與審校</h4>
+          <p>英中／中英翻譯、術語管理、風格一致性、漏譯檢查和譯文潤色。</p>
+        </div>
+      </div>
+
+      <div class="cat">
+        <div class="mark">文</div>
+        <div>
+          <h4>寫作與修訂</h4>
+          <p>公文、電郵、報告、新聞稿、講辭和社交媒體文案的草擬與優化。</p>
+        </div>
+      </div>
+
+      <div class="cat">
+        <div class="mark">研</div>
+        <div>
+          <h4>研究與分析</h4>
+          <p>資料整理、摘要、比較分析、觀點提煉和決策輔助。</p>
+        </div>
+      </div>
+
+      <div class="cat">
+        <div class="mark">簡</div>
+        <div>
+          <h4>簡報與教學</h4>
+          <p>課程設計、講義編排、簡報大綱、練習題和案例討論。</p>
+        </div>
+      </div>
+
+      <div class="cat">
+        <div class="mark">財</div>
+        <div>
+          <h4>財經翻譯與分析</h4>
+          <p>財報摘要、公告翻譯、投資者材料、數據解讀和風險提示。</p>
+        </div>
+      </div>
+
+      <div class="cat">
+        <div class="mark">像</div>
+        <div>
+          <h4>圖像與視覺生成</h4>
+          <p>圖片提示詞、視覺風格設定、構圖說明和品牌一致性。</p>
+        </div>
+      </div>
+
+      <div class="cat">
+        <div class="mark">影</div>
+        <div>
+          <h4>影片與多模態生成</h4>
+          <p>影片腳本、分鏡、鏡頭語言、旁白和多模態內容設計。</p>
+        </div>
+      </div>
+
+      <div class="cat">
+        <div class="mark">評</div>
+        <div>
+          <h4>評估與品質控制</h4>
+          <p>建立檢查清單、評分準則、比較評審和人工覆核流程。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STAY UPDATED ============ -->
+<section class="section" id="updates">
+  <div class="wrap">
+    <div class="stay">
+      <h2>持續更新中</h2>
+      <p>日後將陸續加入更多提示工程工具、範本和案例。</p>
+      <div class="stay-links">
+        <a href="mailto:scsiu@hsu.edu.hk">電郵</a>
+        <a href="https://hk.linkedin.com/in/sai-cheong-siu-64a43874" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="https://www.researchgate.net/profile/Sai-Cheong-Siu" target="_blank" rel="noopener">ResearchGate</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="foot-inner">
+    <div><span id="yr"></span> Prompt Engineering Resource Hub · 提示工程資源網</div>
+    <div>製作：<a href="mailto:scsiu@hsu.edu.hk">Siu Sai Cheong</a></div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>

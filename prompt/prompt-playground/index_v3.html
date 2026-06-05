@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI模型提示詞試驗場</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<style>
+  :root{
+    --reply-font-size:15px;
+    --accent:#0f766e;
+    --accent-dark:#0b5d56;
+    --accent-soft:#ccfbf1;
+  }
+
+  .scroll-thin::-webkit-scrollbar { width: 8px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+  /* The slider changes only generated-answer / transcript text size */
+  #transcript{
+    font-size:var(--reply-font-size);
+  }
+
+  /* Markdown styling — uses em so it scales with the reply font-size slider */
+  .md { line-height: 1.58; word-break: break-word; }
+  .md h1 { font-size: 1.6em; font-weight: 700; margin: .6em 0 .3em; }
+  .md h2 { font-size: 1.35em; font-weight: 700; margin: .6em 0 .3em; }
+  .md h3 { font-size: 1.15em; font-weight: 600; margin: .5em 0 .25em; }
+  .md p { margin: .5em 0; }
+  .md ul, .md ol { margin: .5em 0; padding-left: 1.4em; }
+  .md ul { list-style: disc; }
+  .md ol { list-style: decimal; }
+  .md li { margin: .2em 0; }
+  .md code { background:#f1f5f9; padding:.1em .35em; border-radius:4px; font-size:.9em; }
+  .md pre { background:#0f172a; color:#e2e8f0; padding:.8em; border-radius:8px; overflow-x:auto; margin:.6em 0; }
+  .md pre code { background:none; padding:0; color:inherit; }
+  .md blockquote { border-left:3px solid #cbd5e1; padding-left:.8em; color:#64748b; margin:.5em 0; }
+  .md table { border-collapse:collapse; margin:.6em 0; }
+  .md th, .md td { border:1px solid #cbd5e1; padding:.3em .6em; }
+  .md a { color:#0f766e; text-decoration:underline; }
+  .md img, .md video { max-width:100%; border-radius:8px; margin-top:.5em; }
+  .md audio { width:100%; margin-top:.5em; }
+
+  .md ::selection,
+  textarea::selection,
+  input::selection{
+    background:#bfdbfe;
+  }
+
+  select{
+    background-image:
+      linear-gradient(45deg, transparent 50%, #64748b 50%),
+      linear-gradient(135deg, #64748b 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) calc(50% - 3px),
+      calc(100% - 13px) calc(50% - 3px);
+    background-size:5px 5px, 5px 5px;
+    background-repeat:no-repeat;
+    appearance:none;
+    -webkit-appearance:none;
+    padding-right:2.4rem !important;
+  }
+
+  .btn-teal{
+    background:var(--accent);
+    color:white;
+  }
+  .btn-teal:hover{
+    background:var(--accent-dark);
+  }
+  .btn-outline-teal{
+    background:white;
+    color:var(--accent);
+    border:1px solid rgba(15,118,110,.35);
+  }
+  .btn-outline-teal:hover{
+    background:#f0fdfa;
+  }
+  .ring-teal:focus{
+    outline:none;
+    box-shadow:0 0 0 2px rgba(15,118,110,.35);
+    border-color:var(--accent);
+  }
+
+  #prompt{
+    min-height:88px;
+    max-height:260px;
+    overflow-y:auto;
+    resize:vertical;
+  }
+</style>
+</head>
+
+<body class="bg-slate-100 text-slate-800 h-screen flex flex-col">
+
+<div id="appShell" class="h-screen flex flex-col">
+
+  <!-- ===== Header ===== -->
+  <header class="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-3 shrink-0 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 leading-tight">Poe 多模型提示詞試驗場</h1>
+      <p class="text-sm text-slate-500 mt-1">輸入 Poe API Key 後，可同時比較不同文字、圖像、影片或音訊模型的輸出。</p>
+    </div>
+
+    <div class="flex items-center gap-3 flex-wrap">
+      <!-- Reply font size only -->
+      <div class="flex items-center gap-2 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2" title="只調整對話與模型回覆的字體大小">
+        <span class="text-slate-500 text-xs">回覆字級</span>
+        <span class="text-slate-500">A</span>
+        <input id="fontSize" type="range" min="12" max="24" step="1" value="15" class="w-24 accent-teal-700">
+        <span class="text-lg text-slate-500">A</span>
+      </div>
+
+      <!-- Layout toggle -->
+      <div class="flex rounded-lg overflow-hidden border border-slate-300 text-sm">
+        <button id="layoutCols" class="px-3 py-2 btn-teal">並排</button>
+        <button id="layoutRows" class="px-3 py-2 bg-white hover:bg-slate-100">直列</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Collapsible Settings ===== -->
+  <details open class="bg-white border-b border-slate-200 shrink-0">
+    <summary class="cursor-pointer select-none px-4 py-3 border-b border-slate-100">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">⚙️</span>
+          <span class="font-semibold text-base text-slate-900">設定</span>
+          <span class="text-sm text-slate-500">Poe API Key、模型與參數</span>
+        </div>
+        <span class="text-xs font-medium text-red-700 bg-red-50 border border-red-100 rounded-full px-3 py-1">
+          必須先填寫 API Key
+        </span>
+      </div>
+    </summary>
+
+    <div class="p-4 space-y-4">
+
+      <!-- Quick explanation -->
+      <div class="rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-950">
+        <div class="font-semibold mb-1">開始使用前，請先完成以下三步。</div>
+        <div class="text-teal-900">
+          這個試驗場會使用你自己的 Poe API Key 呼叫模型；如使用收費模型，相關請求會消耗你 Poe 帳戶的點數或額度。
+        </div>
+      </div>
+
+      <!-- Step 1: API Key -->
+      <section class="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+        <div class="flex items-start gap-3 mb-4">
+          <div class="w-8 h-8 rounded-full bg-teal-700 text-white text-sm font-bold flex items-center justify-center shrink-0">1</div>
+          <div>
+            <h2 class="font-bold text-lg text-slate-900 leading-tight">輸入 Poe API Key</h2>
+            <p class="text-sm text-slate-500 mt-1">沒有 API Key，此頁不能呼叫模型。</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-semibold mb-1 text-slate-700">Poe API Key</label>
+            <input id="apiKey" type="password" placeholder="請貼上你的 Poe API Key"
+                   autocomplete="off"
+                   class="w-full border border-slate-300 rounded-lg px-3 py-3 text-base ring-teal">
+
+            <a href="#" id="helpLink" class="inline-flex mt-3 text-sm text-teal-700 underline underline-offset-2">
+              如何取得 Poe API Key？免費與收費模型有何分別？
+            </a>
+          </div>
+
+          <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 leading-relaxed">
+            <p class="font-bold">Key 如何處理？</p>
+            <p class="mt-1">
+              API Key 只保存在目前瀏覽器分頁的記憶體中，並用於直接向 Poe API 發送請求。
+              本頁不會把 Key 儲存在伺服器、localStorage 或資料庫，也不會傳送到 Poe 以外的地方。
+            </p>
+            <p class="mt-1">
+              關閉或重新整理分頁後，你需要重新輸入 API Key。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 2: Models -->
+      <section class="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+        <div class="flex items-start gap-3 mb-4">
+          <div class="w-8 h-8 rounded-full bg-teal-700 text-white text-sm font-bold flex items-center justify-center shrink-0">2</div>
+          <div>
+            <h2 class="font-bold text-lg text-slate-900 leading-tight">選擇或輸入要比較的模型</h2>
+            <p class="text-sm text-slate-500 mt-1">
+              每個欄位可從下拉選單選擇常用模型，也可在「自訂 Poe bot 名稱」輸入任何準確 bot 名稱。自訂欄位如有填寫，會優先使用自訂名稱。
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <!-- Model 1 -->
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <label class="block text-sm font-semibold mb-1 text-slate-700">模型 1</label>
+            <select id="model0"
+                    class="model-select w-full border border-slate-300 rounded-lg px-3 py-3 text-base ring-teal bg-white">
+              <option value="GPT-5.5" selected>GPT-5.5</option>
+              <option value="GPT-5.5-Pro">GPT-5.5-Pro</option>
+              <option value="GPT-5.4">GPT-5.4</option>
+              <option value="Gemini-3.5-Flash">Gemini-3.5-Flash</option>
+              <option value="Gemini-3.1-Pro">Gemini-3.1-Pro</option>
+              <option value="Claude-Opus-4.8">Claude-Opus-4.8</option>
+              <option value="Claude-Sonnet-4.6">Claude-Sonnet-4.6</option>
+              <option value="Claude-Haiku-4.5">Claude-Haiku-4.5</option>
+              <option value="Grok-4.3">Grok-4.3</option>
+              <option value="DeepSeek-R1">DeepSeek-R1</option>
+              <option value="DeepSeek-V4-Pro-T">DeepSeek-V4-Pro-T</option>
+              <option value="GLM-5.1-FW">GLM-5.1-FW</option>
+              <option value="Nano-Banana-2">Nano-Banana-2</option>
+              <option value="Nano-Banana-Pro">Nano-Banana-Pro</option>
+              <option value="GPT-Image-1.5">GPT-Image-1.5</option>
+              <option value="FLUX-2-Pro">FLUX-2-Pro</option>
+              <option value="Seedream-4.5">Seedream-4.5</option>
+              <option value="Imagen-4">Imagen-4</option>
+              <option value="Ideogram-v3">Ideogram-v3</option>
+              <option value="Veo-3.1">Veo-3.1</option>
+              <option value="Kling-3.0">Kling-3.0</option>
+              <option value="Seedance-2.0">Seedance-2.0</option>
+              <option value="Sora-2">Sora-2</option>
+              <option value="Runway-Gen-4">Runway-Gen-4</option>
+              <option value="ElevenLabs-v3">ElevenLabs-v3</option>
+              <option value="Suno-v5">Suno-v5</option>
+              <option value="Lyria-2">Lyria-2</option>
+              <option value="GPT-4o-Search">GPT-4o-Search</option>
+              <option value="Prompt-Search">Prompt-Search</option>
+            </select>
+
+            <label class="block text-xs font-semibold mt-3 mb-1 text-slate-600">自訂 Poe bot 名稱（選填）</label>
+            <input id="customModel0" type="text" placeholder="如填寫，將取代上方選項"
+                   class="custom-model w-full border border-slate-300 rounded-lg px-3 py-2 text-sm ring-teal bg-white">
+          </div>
+
+          <!-- Model 2 -->
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <label class="block text-sm font-semibold mb-1 text-slate-700">模型 2</label>
+            <select id="model1"
+                    class="model-select w-full border border-slate-300 rounded-lg px-3 py-3 text-base ring-teal bg-white">
+              <option value="GPT-5.5">GPT-5.5</option>
+              <option value="GPT-5.5-Pro">GPT-5.5-Pro</option>
+              <option value="GPT-5.4">GPT-5.4</option>
+              <option value="Gemini-3.5-Flash" selected>Gemini-3.5-Flash</option>
+              <option value="Gemini-3.1-Pro">Gemini-3.1-Pro</option>
+              <option value="Claude-Opus-4.8">Claude-Opus-4.8</option>
+              <option value="Claude-Sonnet-4.6">Claude-Sonnet-4.6</option>
+              <option value="Claude-Haiku-4.5">Claude-Haiku-4.5</option>
+              <option value="Grok-4.3">Grok-4.3</option>
+              <option value="DeepSeek-R1">DeepSeek-R1</option>
+              <option value="DeepSeek-V4-Pro-T">DeepSeek-V4-Pro-T</option>
+              <option value="GLM-5.1-FW">GLM-5.1-FW</option>
+              <option value="Nano-Banana-2">Nano-Banana-2</option>
+              <option value="Nano-Banana-Pro">Nano-Banana-Pro</option>
+              <option value="GPT-Image-1.5">GPT-Image-1.5</option>
+              <option value="FLUX-2-Pro">FLUX-2-Pro</option>
+              <option value="Seedream-4.5">Seedream-4.5</option>
+              <option value="Imagen-4">Imagen-4</option>
+              <option value="Ideogram-v3">Ideogram-v3</option>
+              <option value="Veo-3.1">Veo-3.1</option>
+              <option value="Kling-3.0">Kling-3.0</option>
+              <option value="Seedance-2.0">Seedance-2.0</option>
+              <option value="Sora-2">Sora-2</option>
+              <option value="Runway-Gen-4">Runway-Gen-4</option>
+              <option value="ElevenLabs-v3">ElevenLabs-v3</option>
+              <option value="Suno-v5">Suno-v5</option>
+              <option value="Lyria-2">Lyria-2</option>
+              <option value="GPT-4o-Search">GPT-4o-Search</option>
+              <option value="Prompt-Search">Prompt-Search</option>
+            </select>
+
+            <label class="block text-xs font-semibold mt-3 mb-1 text-slate-600">自訂 Poe bot 名稱（選填）</label>
+            <input id="customModel1" type="text" placeholder="如填寫，將取代上方選項"
+                   class="custom-model w-full border border-slate-300 rounded-lg px-3 py-2 text-sm ring-teal bg-white">
+          </div>
+
+          <!-- Model 3 -->
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <label class="block text-sm font-semibold mb-1 text-slate-700">模型 3</label>
+            <select id="model2"
+                    class="model-select w-full border border-slate-300 rounded-lg px-3 py-3 text-base ring-teal bg-white">
+              <option value="GPT-5.5">GPT-5.5</option>
+              <option value="GPT-5.5-Pro">GPT-5.5-Pro</option>
+              <option value="GPT-5.4">GPT-5.4</option>
+              <option value="Gemini-3.5-Flash">Gemini-3.5-Flash</option>
+              <option value="Gemini-3.1-Pro">Gemini-3.1-Pro</option>
+              <option value="Claude-Opus-4.8" selected>Claude-Opus-4.8</option>
+              <option value="Claude-Sonnet-4.6">Claude-Sonnet-4.6</option>
+              <option value="Claude-Haiku-4.5">Claude-Haiku-4.5</option>
+              <option value="Grok-4.3">Grok-4.3</option>
+              <option value="DeepSeek-R1">DeepSeek-R1</option>
+              <option value="DeepSeek-V4-Pro-T">DeepSeek-V4-Pro-T</option>
+              <option value="GLM-5.1-FW">GLM-5.1-FW</option>
+              <option value="Nano-Banana-2">Nano-Banana-2</option>
+              <option value="Nano-Banana-Pro">Nano-Banana-Pro</option>
+              <option value="GPT-Image-1.5">GPT-Image-1.5</option>
+              <option value="FLUX-2-Pro">FLUX-2-Pro</option>
+              <option value="Seedream-4.5">Seedream-4.5</option>
+              <option value="Imagen-4">Imagen-4</option>
+              <option value="Ideogram-v3">Ideogram-v3</option>
+              <option value="Veo-3.1">Veo-3.1</option>
+              <option value="Kling-3.0">Kling-3.0</option>
+              <option value="Seedance-2.0">Seedance-2.0</option>
+              <option value="Sora-2">Sora-2</option>
+              <option value="Runway-Gen-4">Runway-Gen-4</option>
+              <option value="ElevenLabs-v3">ElevenLabs-v3</option>
+              <option value="Suno-v5">Suno-v5</option>
+              <option value="Lyria-2">Lyria-2</option>
+              <option value="GPT-4o-Search">GPT-4o-Search</option>
+              <option value="Prompt-Search">Prompt-Search</option>
+            </select>
+
+            <label class="block text-xs font-semibold mt-3 mb-1 text-slate-600">自訂 Poe bot 名稱（選填）</label>
+            <input id="customModel2" type="text" placeholder="如填寫，將取代上方選項"
+                   class="custom-model w-full border border-slate-300 rounded-lg px-3 py-2 text-sm ring-teal bg-white">
+          </div>
+        </div>
+
+        <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+          <div class="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+            <span class="font-semibold text-slate-700">文字模型：</span>
+            <span class="text-slate-500">支援串流回覆，適合比較語氣、內容和結構。</span>
+          </div>
+          <div class="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+            <span class="font-semibold text-slate-700">圖像／影片／音訊：</span>
+            <span class="text-slate-500">會自動關閉串流模式，生成時間可能較長。</span>
+          </div>
+          <div class="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+            <span class="font-semibold text-slate-700">搜尋模型：</span>
+            <span class="text-slate-500">如需即時資料，請選用支援搜尋的 Poe bot；網頁搜尋開關會加入搜尋指示。</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 3: Optional parameters -->
+      <section class="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+        <div class="flex items-start gap-3 mb-4">
+          <div class="w-8 h-8 rounded-full bg-slate-700 text-white text-sm font-bold flex items-center justify-center shrink-0">3</div>
+          <div>
+            <h2 class="font-bold text-lg text-slate-900 leading-tight">調整參數（選填）</h2>
+            <p class="text-sm text-slate-500 mt-1">如果不確定，可保留預設值。</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-sm font-semibold text-slate-700">Temperature（創意／隨機程度）</label>
+              <span class="text-sm font-semibold text-teal-700 bg-teal-50 rounded-full px-2 py-0.5" id="tempVal">0.3</span>
+            </div>
+            <input id="temperature" type="range" min="0" max="2" step="0.1" value="0.3" class="w-full accent-teal-700">
+            <div class="flex justify-between text-xs text-slate-400 mt-1">
+              <span>較穩定</span>
+              <span>較發散</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold mb-1 text-slate-700">System prompt（選填）</label>
+            <input id="systemPrompt" type="text" placeholder="例如：你是一位嚴謹、清晰、有條理的語文助理。"
+                   class="w-full border border-slate-300 rounded-lg px-3 py-3 text-base ring-teal">
+            <p class="text-xs text-slate-500 mt-1">
+              可用來設定模型角色、語氣或回覆原則；留空亦可正常使用。
+            </p>
+          </div>
+
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input id="webSearchToggle" type="checkbox" class="w-4 h-4 accent-teal-700">
+              <span class="text-sm font-semibold text-slate-700">要求網頁搜尋</span>
+            </label>
+            <p class="text-xs text-slate-500 mt-2">
+              目前此頁使用 Poe Chat Completions 端點；此開關會加入搜尋指示。實際能否搜尋，取決於所選 Poe bot／模型是否支援網頁搜尋。
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </details>
+
+  <!-- ===== Collapsible Input Area ===== -->
+  <details open class="bg-white border-b border-slate-200 shrink-0">
+    <summary class="cursor-pointer select-none px-4 py-3 border-b border-slate-100">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">✍️</span>
+          <span class="font-semibold text-base text-slate-900">輸入與送出</span>
+          <span class="text-sm text-slate-500">撰寫提示詞、送出至模型或整合上一輪</span>
+        </div>
+        <span class="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-full px-3 py-1">
+          Enter 送出｜Shift + Enter 換行｜⌘/Ctrl + Enter 整合
+        </span>
+      </div>
+    </summary>
+
+    <div class="p-3">
+      <div class="flex flex-col lg:flex-row gap-3 lg:items-stretch">
+        <textarea id="prompt" rows="2" placeholder="輸入你的提示詞或訊息（Enter 送出；Shift + Enter 換行；⌘/Ctrl + Enter 整合上一輪）…"
+          class="flex-1 border border-slate-300 rounded-xl px-3 py-3 text-base ring-teal"></textarea>
+
+        <div class="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-1 gap-2 lg:w-56 shrink-0">
+          <button id="sendBtn"
+            class="px-4 py-3 rounded-xl btn-teal text-base font-semibold disabled:opacity-50 whitespace-nowrap flex items-center justify-center">
+            送出至三個模型
+          </button>
+
+          <button id="consolidateBtn"
+            class="px-4 py-3 rounded-xl btn-outline-teal text-base font-semibold disabled:opacity-50 whitespace-nowrap flex items-center justify-center">
+            整合上一輪
+          </button>
+
+          <button id="exportMdBtn"
+            class="px-4 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-base font-semibold whitespace-nowrap flex items-center justify-center">
+            匯出 MD
+          </button>
+
+          <button id="clearBtn"
+            class="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-base font-semibold whitespace-nowrap flex items-center justify-center">
+            清除對話
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mt-2">
+        <div id="alertBar" class="text-sm text-red-600"></div>
+        <div class="text-xs text-slate-400">
+          「整合上一輪」會把上一輪各模型輸出交給模型 1 整理；如輸入框有文字，會作為整合指示。
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ===== Transcript (newest first) ===== -->
+  <main id="transcript" class="scroll-thin flex-1 overflow-y-auto p-4 space-y-6"></main>
+
+  <!-- ===== Help Modal ===== -->
+  <div id="helpModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 max-h-full overflow-y-auto">
+      <div class="flex items-start justify-between mb-3">
+        <h2 class="text-lg font-semibold">取得及使用 Poe API Key</h2>
+        <button id="closeModal" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+      </div>
+
+      <div class="text-sm space-y-3 text-slate-700 leading-relaxed">
+        <p><span class="font-semibold">如何取得 API Key：</span>登入 Poe 後，前往
+          <a href="https://poe.com/api_key" target="_blank" rel="noopener" class="text-teal-700 underline">poe.com/api_key</a>
+          （或 poe.com/api/keys），複製 API Key，然後貼到本頁的 API Key 欄位。</p>
+
+        <p><span class="font-semibold">免費與收費模型：</span>如要透過 API 呼叫需要點數的收費模型，你需要有有效的 Poe 訂閱或可用點數。免費 Poe 用戶未必能透過 API 使用收費模型；相關請求可能會返回錯誤。圖像、影片和音訊 bot 通常亦會消耗點數。</p>
+
+        <p><span class="font-semibold">點數與帳戶：</span>請求會使用你自己的 Poe 帳戶額度或點數。本頁不提供模型額度，也不代你承擔 Poe 的相關費用。</p>
+
+        <p><span class="font-semibold">私隱與安全：</span>這是一個靜態前端頁面。API Key 只會保存在目前瀏覽器分頁的記憶體中，並隨請求直接送往 Poe API。本頁不會把 Key 寫入 localStorage，不會上載到你的網站伺服器，也不會傳送到 Poe 以外的地方。關閉或重新整理分頁後，你需要重新輸入 API Key。</p>
+
+        <p class="text-xs text-slate-500">注意：模型名稱和可用情況可能隨 Poe 更新而改變。如某個模型出錯，請到 poe.com 確認該 bot 的準確名稱及是否可透過 API 使用。</p>
+      </div>
+
+      <div class="mt-5 text-right">
+        <button id="closeModal2" class="px-4 py-2 rounded-lg btn-teal text-sm">明白</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API_URL = "https://api.poe.com/v1/chat/completions";
+marked.setOptions({ breaks: true, gfm: true });
+
+// Models that generate media → must NOT stream (per Poe docs)
+const MEDIA_RE = /(image|imagen|nano-banana|flux|seedream|seedance|veo|kling|sora|runway|luma|ray|wan|ideogram|dall|playground|pika|stable|suno|udio|lyria|eleven|mmaudio|music|tts|speech|imagine|z-image|qwen-image)/i;
+function isMediaModel(m){ return MEDIA_RE.test(m); }
+
+// rounds: [{ prompt, type, responses: { model: {content, status} } }]
+let rounds = [];
+let layoutMode = "columns";
+let activeStreamLengths = {};
+
+function getModelValue(i){
+  const sel = document.getElementById("model"+i);
+  const custom = document.getElementById("customModel"+i);
+  const customVal = (custom?.value || "").trim();
+
+  if(customVal){
+    return customVal;
+  }
+
+  return (sel?.value || "").trim();
+}
+
+function getActiveModels(){
+  return [0,1,2].map(i=>getModelValue(i)).filter(Boolean);
+}
+
+function getFirstModel(){
+  return getModelValue(0);
+}
+
+function safeId(m){
+  return m.replace(/[^a-zA-Z0-9]/g,"_");
+}
+
+function escapeHtml(str){
+  return (str || "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#039;"
+  }[ch]));
+}
+
+function renderMarkdown(text){
+  return DOMPurify.sanitize(marked.parse(text || ""), {
+    ADD_TAGS:["video","audio","source"],
+    ADD_ATTR:["controls","src","type","loading"]
+  });
+}
+
+function maybeAddWebSearchInstruction(prompt){
+  const enabled = document.getElementById("webSearchToggle")?.checked;
+  if(!enabled) return prompt;
+
+  return `${prompt}
+
+
+如你具備網頁搜尋或即時資料查找能力，請先搜尋或核對最新資料，再回答。請在答案中簡要說明資料依據或引用來源。若你無法進行網頁搜尋，請明確說明無法搜尋，並只根據既有知識回答。`;
+}
+
+// Turn media file links into real players; style images
+function enhanceMedia(root){
+  root.querySelectorAll('a[href]').forEach(a=>{
+    const url = a.getAttribute('href') || "";
+    const clean = url.split('?')[0].toLowerCase();
+    if(/\.(mp4|webm|mov|m4v)$/.test(clean)){
+      const v=document.createElement('video');
+      v.src=url;
+      v.controls=true;
+      a.replaceWith(v);
+    } else if(/\.(mp3|wav|ogg|m4a|aac|flac)$/.test(clean)){
+      const au=document.createElement('audio');
+      au.src=url;
+      au.controls=true;
+      a.replaceWith(au);
+    } else {
+      a.target="_blank";
+      a.rel="noopener";
+    }
+  });
+  root.querySelectorAll('img').forEach(img=>{ img.loading="lazy"; });
+}
+
+function buildMessagesForModel(model, system){
+  const messages = [];
+  if (system) messages.push({ role:"system", content:system });
+  for (const r of rounds){
+    messages.push({ role:"user", content:r.promptForApi || r.prompt });
+    const resp = r.responses[model];
+    if (resp && resp.status==="done") messages.push({ role:"assistant", content:resp.content });
+  }
+  return messages;
+}
+
+function getLastCompletedRound(){
+  for(let i=rounds.length-1; i>=0; i--){
+    const r = rounds[i];
+    const vals = Object.values(r.responses || {});
+    if(vals.length && vals.some(v=>v.status==="done" && (v.content || "").trim())){
+      return r;
+    }
+  }
+  return null;
+}
+
+function buildConsolidationPrompt(lastRound, userInstruction){
+  const entries = Object.entries(lastRound.responses || {})
+    .filter(([m, resp]) => resp && resp.status === "done" && (resp.content || "").trim());
+
+  const outputs = entries.map(([model, resp], idx)=>{
+    return `\n${resp.content}`;
+  }).join("\n\n---\n\n");
+
+  const instruction = userInstruction && userInstruction.trim()
+    ? userInstruction.trim()
+    : "請綜合以上各模型輸出，整理成一個較完整、準確、清晰而實用的版本。請保留各版本的優點，刪除重複內容，修正明顯問題。如不同模型有矛盾，請指出並作出審慎判斷。";
+
+  return `以下是上一輪同一提示詞由不同模型產生的輸出。請根據我的整合指示，綜合整理成一個最佳版本。
+
+
+${lastRound.prompt}
+
+
+${instruction}
+
+
+${outputs}`;
+}
+
+function autoGrowPrompt(){
+  const ta = document.getElementById("prompt");
+  if(!ta) return;
+  ta.style.height = "auto";
+  const max = 260;
+  const next = Math.min(ta.scrollHeight, max);
+  ta.style.height = next + "px";
+  ta.style.overflowY = ta.scrollHeight > max ? "auto" : "hidden";
+}
+
+function setBusy(isBusy){
+  document.getElementById("sendBtn").disabled = isBusy;
+  document.getElementById("consolidateBtn").disabled = isBusy;
+}
+
+function scrollToLongestStreamingOutput(){
+  const entries = Object.entries(activeStreamLengths);
+  if(!entries.length) return;
+
+  entries.sort((a,b)=>b[1]-a[1]);
+  const id = entries[0][0];
+  const el = document.getElementById(id);
+  if(!el) return;
+
+  el.scrollIntoView({behavior:"smooth", block:"center"});
+}
+
+function render(){
+  const main = document.getElementById("transcript");
+
+  if (rounds.length===0){
+    main.innerHTML = `<div class="max-w-2xl mx-auto text-center text-slate-500 mt-10 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+      <p class="font-semibold text-slate-700 mb-2">開始前，請先在上方「設定」貼上 Poe API Key。</p>
+      <p>然後輸入提示詞，即可同時比較最多三個模型的回覆。</p>
+      <p class="mt-2">你可以並排比較不同文字模型，也可以選用圖像、影片或音訊模型觀察不同輸出。</p>
+      <p class="mt-3 text-sm text-slate-400">提示：右上角「回覆字級」只會調整此處及模型回覆的文字大小，不會放大整個設定介面。</p>
+    </div>`;
+    return;
+  }
+
+  const rowClass = layoutMode==="columns"
+    ? "flex flex-col sm:flex-row gap-3 items-start"
+    : "flex flex-col gap-3";
+
+  main.innerHTML = rounds.slice().reverse().map((r)=>{
+    const realIdx = rounds.indexOf(r);
+    const models = Object.keys(r.responses);
+    const isConsolidation = r.type === "consolidation";
+
+    const cards = models.map(m=>{
+      const resp = r.responses[m];
+      const badge = resp.status==="pending" ? "bg-amber-100 text-amber-700"
+                   : resp.status==="error"  ? "bg-red-100 text-red-700"
+                   : "bg-emerald-100 text-emerald-700";
+
+      const statusLabel = resp.status==="pending" ? "處理中"
+                        : resp.status==="error" ? "錯誤"
+                        : "完成";
+
+      const inner = resp.status==="pending"
+        ? `<span class="text-slate-400 italic">${isMediaModel(m) ? "…正在生成媒體…" : "…正在思考…"}</span>`
+        : `<div class="md">${renderMarkdown(resp.content)}</div>`;
+
+      return `
+        <div class="flex-1 min-w-0 w-full bg-white rounded-xl border border-slate-200 flex flex-col shadow-sm">
+          <div class="px-3 py-2 border-b border-slate-200 text-sm font-semibold bg-slate-50 rounded-t-xl flex items-center justify-between">
+            <span class="truncate">${escapeHtml(m)}${isMediaModel(m)?' <span class="text-xs text-violet-600">媒體</span>':''}</span>
+            <span class="ml-2 shrink-0 px-2 py-0.5 rounded-full text-xs ${badge}">${statusLabel}</span>
+          </div>
+          <div id="out-${realIdx}-${safeId(m)}" class="p-3 overflow-x-auto">${inner}</div>
+        </div>`;
+    }).join("");
+
+    const roundLabel = isConsolidation ? "整合上一輪" : "你";
+    const userBoxClass = isConsolidation
+      ? "w-full bg-slate-700 text-white rounded-xl px-4 py-3"
+      : "w-full bg-teal-700 text-white rounded-xl px-4 py-3";
+
+    return `
+      <div class="space-y-2">
+        <div class="${userBoxClass}">
+          <span class="text-xs opacity-75 block mb-1">${roundLabel} · 第 ${realIdx+1} 輪</span>
+          <span class="whitespace-pre-wrap">${escapeHtml(r.prompt || "")}</span>
+        </div>
+        <div class="${rowClass}">${cards}</div>
+      </div>`;
+  }).join("");
+
+  // enhance media in all done cards
+  main.querySelectorAll(".md").forEach(enhanceMedia);
+  main.scrollTop = 0;
+}
+
+// ---- Streaming text call (SSE) ----
+async function callModelStream(model, messages, temperature, apiKey, onDelta){
+  const res = await fetch(API_URL, {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "Authorization":"Bearer "+apiKey
+    },
+    body: JSON.stringify({ model, messages, temperature, stream:true })
+  });
+
+  if(!res.ok){
+    const t=await res.text();
+    throw new Error("HTTP "+res.status+": "+t.slice(0,300));
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer="", full="";
+
+  while(true){
+    const {done, value} = await reader.read();
+    if(done) break;
+
+    buffer += decoder.decode(value, {stream:true});
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop();
+
+    for(const part of parts){
+      const line = part.trim();
+      if(!line.startsWith("data:")) continue;
+
+      const data = line.slice(5).trim();
+      if(data==="[DONE]") continue;
+
+      try{
+        const json = JSON.parse(data);
+        const delta = json.choices?.[0]?.delta?.content;
+        if(delta){
+          full += delta;
+          onDelta(full);
+        }
+      }catch(e){
+        /* ignore keep-alives/partials */
+      }
+    }
+  }
+
+  return full;
+}
+
+// ---- Non-stream call (media models) ----
+async function callModelOnce(model, messages, temperature, apiKey){
+  const res = await fetch(API_URL, {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "Authorization":"Bearer "+apiKey
+    },
+    body: JSON.stringify({ model, messages, temperature, stream:false })
+  });
+
+  if(!res.ok){
+    const t=await res.text();
+    throw new Error("HTTP "+res.status+": "+t.slice(0,300));
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? "[空白回覆]";
+}
+
+async function send(){
+  const apiKey = document.getElementById("apiKey").value.trim();
+  const promptRaw = document.getElementById("prompt").value.trim();
+  const temperature = parseFloat(document.getElementById("temperature").value);
+  const system = document.getElementById("systemPrompt").value.trim();
+  const models = getActiveModels();
+
+  if(!apiKey){
+    alertBox("請先在「設定」貼上你的 Poe API Key。沒有 API Key，此頁不能呼叫模型。");
+    return;
+  }
+
+  if(!promptRaw) return;
+
+  if(models.length===0){
+    alertBox("請至少指定一個模型。");
+    return;
+  }
+
+  const promptForApi = maybeAddWebSearchInstruction(promptRaw);
+
+  document.getElementById("prompt").value="";
+  autoGrowPrompt();
+  setBusy(true);
+  activeStreamLengths = {};
+
+  const responses={};
+  models.forEach(m=>{
+    responses[m]={content:"",status:"pending"};
+  });
+
+  const round={prompt:promptRaw,promptForApi,type:"normal",responses};
+  rounds.push(round);
+  const realIdx = rounds.length-1;
+  render();
+
+  await Promise.all(models.map(async (m)=>{
+    const messages = buildMessagesForModel(m, system);
+    const elId = `out-${realIdx}-${safeId(m)}`;
+
+    try{
+      let content;
+
+      if(isMediaModel(m)){
+        content = await callModelOnce(m, messages, temperature, apiKey);
+      } else {
+        content = await callModelStream(m, messages, temperature, apiKey, (full)=>{
+          const el = document.getElementById(elId);
+          if(el){
+            el.innerHTML = `<div class="md">${renderMarkdown(full)}</div>`;
+            activeStreamLengths[elId] = full.length;
+            scrollToLongestStreamingOutput();
+          }
+        });
+      }
+
+      round.responses[m] = { content, status:"done" };
+    }catch(e){
+      round.responses[m] = { content:"⚠️ 錯誤："+e.message, status:"error" };
+    }
+
+    render();
+  }));
+
+  activeStreamLengths = {};
+  setBusy(false);
+}
+
+async function consolidatePreviousRound(){
+  const apiKey = document.getElementById("apiKey").value.trim();
+  const temperature = parseFloat(document.getElementById("temperature").value);
+  const system = document.getElementById("systemPrompt").value.trim();
+  const model = getFirstModel();
+  const userInstructionRaw = document.getElementById("prompt").value.trim();
+  const userInstruction = maybeAddWebSearchInstruction(userInstructionRaw);
+
+  if(!apiKey){
+    alertBox("請先在「設定」貼上你的 Poe API Key。沒有 API Key，此頁不能呼叫模型。");
+    return;
+  }
+
+  if(!model){
+    alertBox("請先指定模型 1；整合會由模型 1 執行。");
+    return;
+  }
+
+  if(isMediaModel(model)){
+    alertBox("模型 1 目前看起來是圖像／影片／音訊模型。請把模型 1 改為文字模型後再整合。");
+    return;
+  }
+
+  const lastRound = getLastCompletedRound();
+
+  if(!lastRound){
+    alertBox("未找到可整合的上一輪輸出。請先送出一次提示詞並取得模型回覆。");
+    return;
+  }
+
+  const doneOutputs = Object.values(lastRound.responses || {}).filter(r=>r.status==="done" && (r.content || "").trim());
+
+  if(doneOutputs.length===0){
+    alertBox("上一輪尚未有可整合的完成輸出。");
+    return;
+  }
+
+  const consolidationPrompt = buildConsolidationPrompt(lastRound, userInstruction);
+  const displayPrompt = userInstructionRaw
+    ? `整合上一輪輸出。\n\n\n${userInstructionRaw}`
+    : "整合上一輪輸出，形成一個較完整、準確、清晰而實用的版本。";
+
+  document.getElementById("prompt").value="";
+  autoGrowPrompt();
+  setBusy(true);
+  activeStreamLengths = {};
+
+  const responses = {};
+  responses[model] = {content:"", status:"pending"};
+
+  const round = {
+    prompt: displayPrompt,
+    promptForApi: consolidationPrompt,
+    type:"consolidation",
+    responses
+  };
+
+  rounds.push(round);
+  const realIdx = rounds.length-1;
+  render();
+
+  const messages = [];
+  if(system) messages.push({ role:"system", content:system });
+  messages.push({ role:"user", content:consolidationPrompt });
+
+  const elId = `out-${realIdx}-${safeId(model)}`;
+
+  try{
+    const content = await callModelStream(model, messages, temperature, apiKey, (full)=>{
+      const el = document.getElementById(elId);
+      if(el){
+        el.innerHTML = `<div class="md">${renderMarkdown(full)}</div>`;
+        activeStreamLengths[elId] = full.length;
+        scrollToLongestStreamingOutput();
+      }
+    });
+
+    round.responses[model] = { content, status:"done" };
+  }catch(e){
+    round.responses[model] = { content:"⚠️ 錯誤："+e.message, status:"error" };
+  }
+
+  activeStreamLengths = {};
+  render();
+  setBusy(false);
+}
+
+function exportConversation(format){
+  if(!rounds.length){
+    alertBox("目前沒有可匯出的對話。");
+    return;
+  }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g,"-");
+  let content = "";
+  let mime = "text/plain";
+  let filename = `poe-playground-${timestamp}.txt`;
+
+  if(format === "json"){
+    content = JSON.stringify({ exportedAt:new Date().toISOString(), rounds }, null, 2);
+    mime = "application/json";
+    filename = `poe-playground-${timestamp}.json`;
+  }else{
+    content = rounds.map((r, idx)=>{
+      const title = r.type === "consolidation" ? `第 ${idx+1} 輪：整合上一輪` : `第 ${idx+1} 輪`;
+      const outputs = Object.entries(r.responses || {}).map(([model, resp])=>{
+        return `### ${model}（${resp.status}）\n\n${resp.content || ""}`;
+      }).join("\n\n---\n\n");
+
+      return `# ${title}
+
+## 提示詞
+
+${r.prompt || ""}
+
+## 模型輸出
+
+${outputs}`;
+    }).join("\n\n==============================\n\n");
+
+    mime = "text/markdown";
+    filename = `poe-playground-${timestamp}.md`;
+  }
+
+  const blob = new Blob([content], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function alertBox(msg){
+  const bar=document.getElementById("alertBar");
+  bar.textContent=msg;
+  setTimeout(()=>{
+    if(bar.textContent===msg) bar.textContent="";
+  },5000);
+}
+
+// Layout toggle
+function setLayout(mode){
+  layoutMode=mode;
+  const on="px-3 py-2 btn-teal";
+  const off="px-3 py-2 bg-white hover:bg-slate-100";
+
+  document.getElementById("layoutCols").className = mode==="columns" ? on : off;
+  document.getElementById("layoutRows").className = mode==="rows" ? on : off;
+
+  render();
+}
+
+document.getElementById("layoutCols").addEventListener("click",()=>setLayout("columns"));
+document.getElementById("layoutRows").addEventListener("click",()=>setLayout("rows"));
+
+// Font size — applies only to transcript / model replies
+function applyReplyFontSize(value){
+  const px = value + "px";
+  document.documentElement.style.setProperty("--reply-font-size", px);
+}
+
+document.getElementById("fontSize").addEventListener("input",e=>{
+  applyReplyFontSize(e.target.value);
+});
+
+// If dropdown or custom model changes, start a fresh conversation
+[0,1,2].forEach(i=>{
+  document.getElementById("model"+i).addEventListener("change",()=>{
+    rounds=[];
+    render();
+  });
+  document.getElementById("customModel"+i).addEventListener("input",()=>{
+    rounds=[];
+    render();
+  });
+});
+
+// Modal
+const helpModal=document.getElementById("helpModal");
+
+document.getElementById("helpLink").addEventListener("click",e=>{
+  e.preventDefault();
+  helpModal.classList.remove("hidden");
+});
+
+document.getElementById("closeModal").addEventListener("click",()=>{
+  helpModal.classList.add("hidden");
+});
+
+document.getElementById("closeModal2").addEventListener("click",()=>{
+  helpModal.classList.add("hidden");
+});
+
+helpModal.addEventListener("click",e=>{
+  if(e.target===helpModal) helpModal.classList.add("hidden");
+});
+
+// Prompt textarea auto-grow and manual resize support
+const promptBox = document.getElementById("prompt");
+promptBox.addEventListener("input",autoGrowPrompt);
+window.addEventListener("resize",autoGrowPrompt);
+
+// Wiring
+document.getElementById("sendBtn").addEventListener("click",send);
+document.getElementById("consolidateBtn").addEventListener("click",consolidatePreviousRound);
+document.getElementById("clearBtn").addEventListener("click",()=>{
+  rounds=[];
+  render();
+});
+document.getElementById("exportMdBtn").addEventListener("click",()=>exportConversation("md"));
+
+document.getElementById("prompt").addEventListener("keydown",e=>{
+  if(e.key==="Enter" && (e.metaKey || e.ctrlKey)){
+    e.preventDefault();
+    consolidatePreviousRound();
+    return;
+  }
+
+  if(e.key==="Enter" && !e.shiftKey){
+    e.preventDefault();
+    send();
+  }
+});
+
+document.getElementById("temperature").addEventListener("input",e=>{
+  document.getElementById("tempVal").textContent=e.target.value;
+});
+
+applyReplyFontSize(document.getElementById("fontSize").value);
+autoGrowPrompt();
+render();
+</script>
+</div>
+</body>
+</html>
